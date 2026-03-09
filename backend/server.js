@@ -21,7 +21,7 @@ if (!GEMINI_API_KEY) {
 }
 
 // Allow preflight requests for all routes
-app.options('*', cors());
+app.use(cors()); // Use cors middleware globally instead of app.options('*')
 
 const handleGeminiRequest = async (req, res) => {
   try {
@@ -32,17 +32,24 @@ const handleGeminiRequest = async (req, res) => {
       return res.status(401).json({ error: "API Key is required but not provided." });
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeyToUse}`, {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeyToUse}`;
+    console.log(`[DEBUG] Calling Gemini API Endpoint: ${endpoint.substring(0, endpoint.indexOf('key=') + 4)}***${apiKeyToUse.slice(-4)}`);
+
+    // Log whether it is using the user's key or the fallback server key
+    console.log(`[DEBUG] Using user-provided API key: ${!!userApiKey}`);
+
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body)
     });
 
+    console.log(`[DEBUG] Gemini API Response Status: ${response.status} ${response.statusText}`);
     const data = await response.json();
 
     // Gemini API often returns 200 even with errors inside the payload (e.g. invalid auth formats), or 400 for bad keys
     if (!response.ok) {
-      console.error("Gemini API Error Response:", data);
+      console.error("[DEBUG] Gemini API Error Response:", JSON.stringify(data, null, 2));
       return res.status(response.status).json({
         error: data.error?.message || "Google Gemini API returned an error.",
         details: data
