@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, Edit3, Volume2, Download, Copy, ChevronLeft, Check, Loader2, Play, AlertCircle, FileText, Plus, X, Package, Upload, BrainCircuit, Trophy, RefreshCw, ArrowRight, Settings } from 'lucide-react';
+import { BookOpen, Edit3, Volume2, Download, Copy, ChevronLeft, Check, Loader2, Play, AlertCircle, FileText, Plus, X, Package, Upload, BrainCircuit, Trophy, RefreshCw, ArrowRight, Settings, Clock } from 'lucide-react';
 
 // --- Utility Functions ---
 
@@ -91,7 +91,7 @@ const initialBatchItems = [
 
 // --- Sub-Component for each Tab Content ---
 
-function TabContent({ tabData, updateTab, apiKey }) {
+function TabContent({ tabData, updateTab, apiKey, isFreeTierLimitEnabled, saveIsFreeTierLimitEnabled }) {
     const {
         view, wordInput, exampleType, manualExample, wordData,
         audioUrl, isGeneratingAudio, errorMsg, showConfirmModal, copySuccess, audioBlob,
@@ -806,38 +806,39 @@ ${wordData.learningPoints.join('。')}
         throw new Error("Invalid response format");
     };
 
-    const runBatchPipeline = async (item) => {
+    const runBatchPipelineSequential = async (item) => {
         try {
+            updateBatchItemState(item.id, { status: 'generating_word' });
             const wordData = await generateWordDataForBatch(item.word);
             updateBatchItemState(item.id, { status: 'word_done', wordData });
 
-            const promises = [];
-
             if (item.saveType === 'package') {
+                if (isFreeTierLimitEnabled) {
+                    await new Promise(r => setTimeout(r, 4000));
+                }
                 updateBatchItemState(item.id, { audioStatus: 'generating' });
-                promises.push(
-                    generateAudioForBatch(wordData).then(audioBlob => {
-                        updateBatchItemState(item.id, { audioStatus: 'done', audioBlob });
-                    }).catch(err => {
-                        console.error("Audio Error:", err);
-                        updateBatchItemState(item.id, { audioStatus: 'error', errorMsg: '音声エラー' });
-                    })
-                );
+                try {
+                    const audioBlob = await generateAudioForBatch(wordData);
+                    updateBatchItemState(item.id, { audioStatus: 'done', audioBlob });
+                } catch (err) {
+                    console.error("Audio Error:", err);
+                    updateBatchItemState(item.id, { audioStatus: 'error', errorMsg: '音声エラー' });
+                }
             }
 
             if (item.includeQuiz) {
+                if (isFreeTierLimitEnabled) {
+                    await new Promise(r => setTimeout(r, 4000));
+                }
                 updateBatchItemState(item.id, { quizStatus: 'generating' });
-                promises.push(
-                    generateQuizForBatch(wordData).then(quizData => {
-                        updateBatchItemState(item.id, { quizStatus: 'done', quizData });
-                    }).catch(err => {
-                        console.error("Quiz Error:", err);
-                        updateBatchItemState(item.id, { quizStatus: 'error', errorMsg: 'クイズエラー' });
-                    })
-                );
+                try {
+                    const quizData = await generateQuizForBatch(wordData);
+                    updateBatchItemState(item.id, { quizStatus: 'done', quizData });
+                } catch (err) {
+                    console.error("Quiz Error:", err);
+                    updateBatchItemState(item.id, { quizStatus: 'error', errorMsg: 'クイズエラー' });
+                }
             }
-
-            await Promise.all(promises);
 
         } catch (err) {
             console.error("Word Error:", err);
@@ -845,13 +846,13 @@ ${wordData.learningPoints.join('。')}
         }
     };
 
-    const handleStartBatch = () => {
+    const handleStartBatch = async () => {
         const itemsToProcess = (batchItems || initialBatchItems).filter(item => item.word.trim() !== '');
         if (itemsToProcess.length === 0) return;
 
         const initializedItems = itemsToProcess.map(item => ({
             ...item,
-            status: 'generating_word',
+            status: 'waiting',
             audioStatus: item.saveType === 'package' ? 'idle' : 'none',
             quizStatus: item.includeQuiz ? 'idle' : 'none',
             errorMsg: null
@@ -866,9 +867,16 @@ ${wordData.learningPoints.join('。')}
             return { view: 'batch_progress', batchItems: newBatch };
         });
 
-        initializedItems.forEach(item => {
-            runBatchPipeline(item);
-        });
+        for (let i = 0; i < initializedItems.length; i++) {
+            const item = initializedItems[i];
+
+            await runBatchPipelineSequential(item);
+
+            if (i < initializedItems.length - 1 && isFreeTierLimitEnabled) {
+                const delayMs = item.saveType === 'package' ? 22000 : 8000;
+                await new Promise(r => setTimeout(r, delayMs));
+            }
+        }
     };
 
     const downloadHtmlOnly = (wordData) => {
@@ -980,12 +988,18 @@ ${wordData.learningPoints.join('。')}
                             <label className="block text-sm font-medium text-neutral-400 mb-2">Gemini API Key</label>
                             <input type="password" value={tabData.tempApiKey !== undefined ? tabData.tempApiKey : apiKey} onChange={(e) => updateTab({ tempApiKey: e.target.value })} placeholder="AIzaSy..." className="w-full bg-neutral-950 border border-neutral-700 rounded-md px-4 py-3 text-neutral-100 font-mono text-sm focus:outline-none focus:border-[#d4af37] transition-all" />
                         </div>
+                        <div className="mb-6 flex items-center gap-3">
+                            <input type="checkbox" id="freeTierToggle" checked={tabData.tempIsFree !== undefined ? tabData.tempIsFree : isFreeTierLimitEnabled} onChange={(e) => updateTab({ tempIsFree: e.target.checked })} className="w-4 h-4 rounded text-[#d4af37] focus:ring-[#d4af37] bg-neutral-950 border-neutral-700 cursor-pointer" />
+                            <label htmlFor="freeTierToggle" className="text-sm font-medium text-neutral-300 cursor-pointer">無料枠の制限を考慮してゆっくり生成する（API上限対策）</label>
+                        </div>
                         <div className="flex gap-4">
-                            <button onClick={() => updateTab({ showSettingsModal: false, tempApiKey: undefined })} className="flex-1 py-3 border border-neutral-700 text-neutral-300 hover:bg-neutral-800 transition-colors rounded">キャンセル</button>
+                            <button onClick={() => updateTab({ showSettingsModal: false, tempApiKey: undefined, tempIsFree: undefined })} className="flex-1 py-3 border border-neutral-700 text-neutral-300 hover:bg-neutral-800 transition-colors rounded">キャンセル</button>
                             <button onClick={() => {
                                 const newKey = tabData.tempApiKey !== undefined ? tabData.tempApiKey : apiKey;
+                                const newIsFree = tabData.tempIsFree !== undefined ? tabData.tempIsFree : isFreeTierLimitEnabled;
                                 tabData.saveApiKey(newKey);
-                                updateTab({ showSettingsModal: false, tempApiKey: undefined });
+                                saveIsFreeTierLimitEnabled(newIsFree);
+                                updateTab({ showSettingsModal: false, tempApiKey: undefined, tempIsFree: undefined });
                             }} className="flex-1 py-3 bg-[#d4af37] hover:bg-[#b8962d] text-neutral-950 font-bold transition-colors rounded">保存する</button>
                         </div>
                     </div>
@@ -1049,9 +1063,10 @@ ${wordData.learningPoints.join('。')}
                                 <div className="text-sm text-neutral-400 mt-2 space-y-1">
                                     <div className="flex items-center gap-2">
                                         <span>単語帳:</span>
-                                        {item.status === 'generating_word' ? <span className="text-yellow-500 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> 生成中...</span> :
-                                            item.status === 'word_done' ? <span className="text-green-500 flex items-center gap-1"><Check size={12} /> 完了</span> :
-                                                <span className="text-red-500 flex items-center gap-1"><AlertCircle size={12} /> エラー</span>}
+                                        {item.status === 'waiting' ? <span className="text-neutral-500 flex items-center gap-1"><Clock size={12} /> 待受中</span> :
+                                            item.status === 'generating_word' ? <span className="text-yellow-500 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> 生成中...</span> :
+                                                item.status === 'word_done' ? <span className="text-green-500 flex items-center gap-1"><Check size={12} /> 完了</span> :
+                                                    <span className="text-red-500 flex items-center gap-1"><AlertCircle size={12} /> エラー</span>}
                                     </div>
                                     {item.saveType === 'package' && (
                                         <div className="flex items-center gap-2">
@@ -1272,6 +1287,16 @@ export default function App() {
         localStorage.setItem('lexicon_gemini_api_key', key);
     };
 
+    const [isFreeTierLimitEnabled, setIsFreeTierLimitEnabled] = useState(() => {
+        const val = localStorage.getItem('lexicon_free_tier_limit');
+        return val === null ? true : val === 'true';
+    });
+
+    const saveIsFreeTierLimitEnabled = (val) => {
+        setIsFreeTierLimitEnabled(val);
+        localStorage.setItem('lexicon_free_tier_limit', String(val));
+    };
+
     const [tabs, setTabs] = useState([
         { id: crypto.randomUUID(), tabName: 'ホーム', view: 'menu', wordInput: '', exampleType: 'auto', manualExample: '', wordData: null, audioUrl: null, audioBlob: null, isGeneratingAudio: false, errorMsg: null, showConfirmModal: false, showSettingsModal: false, copySuccess: false, quizData: null, currentQuizIndex: 0, quizScore: 0, quizResults: [], isGeneratingQuiz: false, showQuizFeedback: false, selectedOptionIndex: null, batchItems: initialBatchItems }
     ]);
@@ -1307,7 +1332,7 @@ export default function App() {
                 ))}
                 {tabs.length < 3 && <button onClick={addTab} className="mb-1.5 p-1.5 hover:bg-neutral-800 rounded-full text-neutral-500 transition-colors ml-1"><Plus size={16} /></button>}
             </div>
-            <main>{tabs.map(tab => <div key={tab.id} className={activeTabId === tab.id ? "block" : "hidden"}><TabContent tabData={{ ...tab, saveApiKey }} updateTab={(data) => updateTab(tab.id, data)} apiKey={apiKey} /></div>)}</main>
+            <main>{tabs.map(tab => <div key={tab.id} className={activeTabId === tab.id ? "block" : "hidden"}><TabContent tabData={{ ...tab, saveApiKey }} updateTab={(data) => updateTab(tab.id, data)} apiKey={apiKey} isFreeTierLimitEnabled={isFreeTierLimitEnabled} saveIsFreeTierLimitEnabled={saveIsFreeTierLimitEnabled} /></div>)}</main>
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
