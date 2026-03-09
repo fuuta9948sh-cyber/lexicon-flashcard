@@ -243,7 +243,7 @@ function TabContent({ tabData, updateTab, apiKey, isFreeTierLimitEnabled, saveIs
 
             const textResp = response.candidates?.[0]?.content?.parts?.[0]?.text;
             if (textResp) {
-                const data = JSON.parse(textResp);
+                const data = JSON.parse(textResp.replace(/^```json(?:\n)?|```(?:\n)?$/g, '').trim());
                 updateTab({
                     wordData: data,
                     view: 'result',
@@ -416,7 +416,7 @@ ${wordData.learningPoints.join('。')}
 
             const textResp = response.candidates?.[0]?.content?.parts?.[0]?.text;
             if (textResp) {
-                const data = JSON.parse(textResp);
+                const data = JSON.parse(textResp.replace(/^```json(?:\n)?|```(?:\n)?$/g, '').trim());
                 updateTab({
                     quizData: data.quizzes,
                     view: 'quiz',
@@ -693,7 +693,7 @@ ${wordData.learningPoints.join('。')}
         });
 
         const textResp = response.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (textResp) return JSON.parse(textResp);
+        if (textResp) return JSON.parse(textResp.replace(/^```json(?:\n)?|```(?:\n)?$/g, '').trim());
         throw new Error("Invalid response format");
     };
 
@@ -802,7 +802,7 @@ ${wordData.learningPoints.join('。')}
         });
 
         const textResp = response.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (textResp) return JSON.parse(textResp).quizzes;
+        if (textResp) return JSON.parse(textResp.replace(/^```json(?:\n)?|```(?:\n)?$/g, '').trim()).quizzes;
         throw new Error("Invalid response format");
     };
 
