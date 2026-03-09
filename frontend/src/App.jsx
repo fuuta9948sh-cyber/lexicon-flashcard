@@ -278,7 +278,7 @@ ${wordData.learningPoints.join('。')}
         `;
 
         const payload = {
-            contents: [{ parts: [{ text: textToRead }] }],
+            contents: [{ parts: [{ text: "Please read the following text aloud exactly as provided:\n\n" + textToRead }] }],
             generationConfig: {
                 responseModalities: ["AUDIO"],
                 speechConfig: {
@@ -701,7 +701,7 @@ ${wordData.learningPoints.join('。')}
         const textToRead = `単語。${wordData.word}。意味。${wordData.meanings.map(m => `${m.partOfSpeech}。${m.meaning}。${m.variations ? `変化形、${m.variations}。` : ''}`).join(' ')} 例文。${wordData.example.english} 日本語訳。${wordData.example.japanese} 学習のポイント。${wordData.learningPoints.join('。')}`;
 
         const payload = {
-            contents: [{ parts: [{ text: textToRead }] }],
+            contents: [{ parts: [{ text: "Please read the following text aloud exactly as provided:\n\n" + textToRead }] }],
             generationConfig: {
                 responseModalities: ["AUDIO"],
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } }
