@@ -255,7 +255,7 @@ function TabContent({ tabData, updateTab, apiKey }) {
         } catch (error) {
             console.error(error);
             updateTab({
-                errorMsg: error.message?.includes('API Key') ? "エラー：有効なAPIキーを設定してください。（ホーム画面から設定）" : "単語データの生成に失敗しました。しばらく経ってからもう一度お試しください。",
+                errorMsg: error.message?.includes('API Key') ? "エラー：有効なAPIキーを設定してください。（ホーム画面から設定）" : `単語生成エラー: ${error.message || "失敗しました。もう一度お試しください。"}`,
                 view: 'create'
             });
         }

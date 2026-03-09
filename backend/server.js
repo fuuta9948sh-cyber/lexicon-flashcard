@@ -8,9 +8,10 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Allow CORS from frontend
 app.use(cors({
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-gemini-api-key']
+  origin: '*',
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-gemini-api-key'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json({ limit: '10mb' })); // ensure large payloads can be handled
 
@@ -20,8 +21,15 @@ if (!GEMINI_API_KEY) {
   console.warn("WARNING: GEMINI_API_KEY is not set in .env!");
 }
 
-// Allow preflight requests for all routes
-app.use(cors()); // Use cors middleware globally instead of app.options('*')
+app.get('/api/debug-info', (req, res) => {
+  res.json({
+    headers: req.headers,
+    method: req.method,
+    url: req.url,
+    env_has_gemini_key: !!process.env.GEMINI_API_KEY,
+    node_version: process.version
+  });
+});
 
 const handleGeminiRequest = async (req, res) => {
   try {
