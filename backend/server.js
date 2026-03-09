@@ -20,13 +20,16 @@ if (!GEMINI_API_KEY) {
   console.warn("WARNING: GEMINI_API_KEY is not set in .env!");
 }
 
-app.post('/api/generate-word', async (req, res) => {
+// Allow preflight requests for all routes
+app.options('*', cors());
+
+const handleGeminiRequest = async (req, res) => {
   try {
     const userApiKey = req.headers['x-gemini-api-key'];
     const apiKeyToUse = userApiKey || GEMINI_API_KEY;
 
     if (!apiKeyToUse) {
-      return res.status(401).json({ error: "API Key is required but not provided in headers or environment." });
+      return res.status(401).json({ error: "API Key is required but not provided." });
     }
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeyToUse}`, {
@@ -36,52 +39,36 @@ app.post('/api/generate-word', async (req, res) => {
     });
 
     const data = await response.json();
+
+    // Gemini API often returns 200 even with errors inside the payload (e.g. invalid auth formats), or 400 for bad keys
     if (!response.ok) {
-      return res.status(response.status).json(data);
+      console.error("Gemini API Error Response:", data);
+      return res.status(response.status).json({
+        error: data.error?.message || "Google Gemini API returned an error.",
+        details: data
+      });
     }
+
     res.json(data);
   } catch (error) {
-    console.error("Error internally:", error);
-    res.status(500).json({ error: error.message });
+    console.error("Internal Server Error:", error);
+    res.status(500).json({ error: "Internal server error connecting to Gemini API.", details: error.message });
   }
-});
+};
 
-app.post('/api/generate-quiz', async (req, res) => {
-  try {
-    const userApiKey = req.headers['x-gemini-api-key'];
-    const apiKeyToUse = userApiKey || GEMINI_API_KEY;
-
-    if (!apiKeyToUse) {
-      return res.status(401).json({ error: "API Key is required but not provided in headers or environment." });
-    }
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeyToUse}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body)
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json(data);
-    }
-    res.json(data);
-  } catch (error) {
-    console.error("Error internally:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
+app.post('/api/generate-word', handleGeminiRequest);
+app.post('/api/generate-quiz', handleGeminiRequest);
 app.post('/api/generate-audio', async (req, res) => {
   try {
     const userApiKey = req.headers['x-gemini-api-key'];
     const apiKeyToUse = userApiKey || GEMINI_API_KEY;
 
     if (!apiKeyToUse) {
-      return res.status(401).json({ error: "API Key is required but not provided in headers or environment." });
+      return res.status(401).json({ error: "API Key is required but not provided." });
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeyToUse}`, {
+    // Audio generation uses a different model
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKeyToUse}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body)
@@ -89,12 +76,16 @@ app.post('/api/generate-audio', async (req, res) => {
 
     const data = await response.json();
     if (!response.ok) {
-      return res.status(response.status).json(data);
+      console.error("Gemini Audio API Error Response:", data);
+      return res.status(response.status).json({
+        error: data.error?.message || "Google Gemini API returned an error.",
+        details: data
+      });
     }
     res.json(data);
   } catch (error) {
-    console.error("Error internally:", error);
-    res.status(500).json({ error: error.message });
+    console.error("Internal Server Error (Audio):", error);
+    res.status(500).json({ error: "Internal server error connecting to Gemini Audio API.", details: error.message });
   }
 });
 

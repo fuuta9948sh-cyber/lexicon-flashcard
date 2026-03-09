@@ -234,8 +234,11 @@ function TabContent({ tabData, updateTab, apiKey }) {
                     headers,
                     body: JSON.stringify(payload)
                 });
-                if (!res.ok) throw new Error(`API Error: ${res.status}`);
-                return await res.json();
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || `API Error: ${res.status}`);
+                }
+                return data;
             });
 
             const textResp = response.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -252,7 +255,7 @@ function TabContent({ tabData, updateTab, apiKey }) {
         } catch (error) {
             console.error(error);
             updateTab({
-                errorMsg: "単語データの生成に失敗しました。しばらく経ってからもう一度お試しください。",
+                errorMsg: error.message?.includes('API Key') ? "エラー：有効なAPIキーを設定してください。（ホーム画面から設定）" : "単語データの生成に失敗しました。しばらく経ってからもう一度お試しください。",
                 view: 'create'
             });
         }
@@ -296,8 +299,11 @@ ${wordData.learningPoints.join('。')}
                     headers,
                     body: JSON.stringify(payload)
                 });
-                if (!res.ok) throw new Error(`API Error: ${res.status}`);
-                return await res.json();
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || `API Error: ${res.status}`);
+                }
+                return data;
             });
 
             const audioDataObj = response.candidates?.[0]?.content?.parts?.[0]?.inlineData;
@@ -320,7 +326,7 @@ ${wordData.learningPoints.join('。')}
             }
         } catch (error) {
             console.error(error);
-            updateTab({ errorMsg: "音声の生成に失敗しました。", isGeneratingAudio: false });
+            updateTab({ errorMsg: error.message?.includes('API Key') ? "エラー：有効なAPIキーを設定してください。（ホーム画面から設定）" : "音声の生成に失敗しました。", isGeneratingAudio: false });
         }
     };
 
@@ -401,8 +407,11 @@ ${wordData.learningPoints.join('。')}
                     headers,
                     body: JSON.stringify(payload)
                 });
-                if (!res.ok) throw new Error(`API Error: ${res.status}`);
-                return await res.json();
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || `API Error: ${res.status}`);
+                }
+                return data;
             });
 
             const textResp = response.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -421,7 +430,7 @@ ${wordData.learningPoints.join('。')}
             }
         } catch (error) {
             console.error(error);
-            updateTab({ errorMsg: "クイズの生成に失敗しました。", isGeneratingQuiz: false, view: 'result' });
+            updateTab({ errorMsg: error.message?.includes('API Key') ? "エラー：有効なAPIキーを設定してください。（ホーム画面から設定）" : "クイズの生成に失敗しました。", isGeneratingQuiz: false, view: 'result' });
         }
     };
 
@@ -676,8 +685,11 @@ ${wordData.learningPoints.join('。')}
                 headers,
                 body: JSON.stringify(payload)
             });
-            if (!res.ok) throw new Error(`API Error: ${res.status}`);
-            return await res.json();
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || `API Error: ${res.status}`);
+            }
+            return data;
         });
 
         const textResp = response.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -705,8 +717,11 @@ ${wordData.learningPoints.join('。')}
                 headers,
                 body: JSON.stringify(payload)
             });
-            if (!res.ok) throw new Error(`API Error: ${res.status}`);
-            return await res.json();
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || `API Error: ${res.status}`);
+            }
+            return data;
         });
 
         const audioDataObj = response.candidates?.[0]?.content?.parts?.[0]?.inlineData;
@@ -779,8 +794,11 @@ ${wordData.learningPoints.join('。')}
                 headers,
                 body: JSON.stringify(payload)
             });
-            if (!res.ok) throw new Error(`API Error: ${res.status}`);
-            return await res.json();
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || `API Error: ${res.status}`);
+            }
+            return data;
         });
 
         const textResp = response.candidates?.[0]?.content?.parts?.[0]?.text;
